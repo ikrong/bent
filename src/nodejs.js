@@ -8,6 +8,7 @@ const bytes = require('bytesish')
 const bent = require('./core')
 const zlib = require('zlib')
 const { PassThrough } = require('stream')
+const httpProxyAgent = require('https-proxy-agent')
 
 const compression = {}
 
@@ -44,7 +45,7 @@ const getResponse = resp => {
 }
 
 class StatusError extends Error {
-  constructor (res, ...params) {
+  constructor(res, ...params) {
     super(...params)
 
     Error.captureStackTrace(this, StatusError)
@@ -104,6 +105,12 @@ const mkrequest = (statusCodes, method, encoding, headers, baseurl) => (_url, bo
   } else {
     throw new Error(`Unknown protocol, ${parsed.protocol}`)
   }
+  let proxyAgent = null
+  if (headers && headers.proxy) {
+    let proxy = headers.proxy
+    delete headers.proxy
+    proxyAgent = new httpProxyAgent(proxy)
+  }
   const request = {
     path: parsed.pathname + parsed.search,
     port: parsed.port,
@@ -113,6 +120,9 @@ const mkrequest = (statusCodes, method, encoding, headers, baseurl) => (_url, bo
   }
   if (parsed.username || parsed.password) {
     request.auth = [parsed.username, parsed.password].join(':')
+  }
+  if (proxyAgent) {
+    request.agent = proxyAgent
   }
   const c = caseless(request.headers)
   if (encoding === 'json') {
